@@ -360,13 +360,254 @@ Las **excepciones** (`IllegalArgumentException`, `IllegalStateException`) se lan
 
 ## 9. En Java, existen también `List`, cambia y muestra cómo sería el código anterior empleando `List` en vez de arrays primitivos. ¿Qué parte del código original te has ahorrado? Además, fíjate en el método `getProfesor(int pos)`: si en su lugar existiera un método que devolviera todos los profesores a la vez, ¿qué problema tendría devolver directamente la lista interna? ¿Cómo lo resolverías?
 
-### Respuesta
+```java
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class DepartamentoList {
+    // Composición débil usando List en lugar de array primitivo
+    private List<Profesor> profesores;
+    private Profesor director;
+
+    public DepartamentoList(Profesor directorInicial) {
+        if (directorInicial == null) {
+            throw new IllegalArgumentException("El director inicial no puede ser nulo");
+        }
+        this.profesores = new ArrayList<>();
+        this.director = directorInicial;
+        this.profesores.add(directorInicial);
+    }
+
+    public void añadirProfesor(Profesor profesor) {
+        if (profesor == null) {
+            throw new IllegalArgumentException("El profesor no puede ser nulo");
+        }
+        profesores.add(profesor);
+    }
+
+    public void eliminarProfesor(int posicion) {
+        if (posicion < 0 || posicion >= profesores.size()) {
+            throw new IllegalArgumentException("Posición inválida: " + posicion);
+        }
+        
+        Profesor profesorAEliminar = profesores.get(posicion);
+        
+        // Invariante: no se puede eliminar al director si es el único profesor
+        if (profesorAEliminar == director && profesores.size() == 1) {
+            throw new IllegalStateException("No se puede eliminar al director si es el único profesor del departamento");
+        }
+        
+        profesores.remove(posicion);
+        
+        // Si el profesor eliminado era el director, se asigna un nuevo director
+        if (profesorAEliminar == director) {
+            director = profesores.get(0);
+        }
+    }
+
+    public void cambiarDirector(Profesor nuevoDirector) {
+        if (nuevoDirector == null) {
+            throw new IllegalArgumentException("El nuevo director no puede ser nulo");
+        }
+        
+        if (!profesores.contains(nuevoDirector)) {
+            throw new IllegalArgumentException("El nuevo director debe ser un profesor del departamento");
+        }
+        
+        this.director = nuevoDirector;
+    }
+
+    public int getCantidadProfesores() {
+        return profesores.size();
+    }
+
+    public Profesor getProfesor(int posicion) {
+        if (posicion < 0 || posicion >= profesores.size()) {
+            throw new IllegalArgumentException("Posición inválida: " + posicion);
+        }
+        return profesores.get(posicion);
+    }
+
+    public Profesor getDirector() {
+        return director;
+    }
+
+    public boolean contieneProfesor(Profesor profesor) {
+        return profesores.contains(profesor);
+    }
+}
+```
+
+Al usar `List` (en concreto `ArrayList`), el código original se ha **ahorrado** varias tareas de gestión manual que eran necesarias con arrays primitivos. En primer lugar, la **declaración del tamaño máximo** (`MAX_PROFESORES`) y las comprobaciones de capacidad ya no son necesarias, ya que `ArrayList` crece dinámicamente. En segundo lugar, la **gestión del contador** (`cantidadProfesores`) desaparece, pues `List` proporciona el método `size()`. En tercer lugar, la **lógica de desplazamiento** al eliminar un elemento (el bucle `for` que movía referencias) se elimina por completo, ya que `remove(posicion)` lo hace internamente. También se elimina la necesidad de **limpiar manualmente la última posición** con `null`. Por último, la comprobación de pertenencia se simplifica drásticamente usando `contains()` en lugar de un bucle manual.
+
+Si existiera un método que devolviera **todos los profesores a la vez**, como `public List<Profesor> getTodosLosProfesores() { return profesores; }`, el problema sería que se **rompe la encapsulación** de manera peligrosa. El código externo recibiría una referencia directa a la lista interna del departamento, lo que permitiría modificaciones no controladas como `departamento.getTodosLosProfesores().add(profesorExterno)` o `departamento.getTodosLosProfesores().remove(0)`, saltándose por completo las validaciones y la lógica de negocio (como la invariante del director). Esto podría dejar al departamento en un estado inconsistente, con un director que ya no está en la lista o con profesores añadidos sin control.
+
+Para resolverlo, se debe devolver una **copia defensiva** o una **vista no modificable** de la lista interna. La solución más común es usar `Collections.unmodifiableList()`:
+
+```java
+public List<Profesor> getTodosLosProfesores() {
+    return Collections.unmodifiableList(profesores);
+}
+```
+
+Esta vista lanza `UnsupportedOperationException` si el código externo intenta modificarla, protegiendo así la integridad del objeto. Alternativamente, se podría devolver una **copia** explícita: `return new ArrayList<>(profesores);`, pero esto tiene el coste de crear un nuevo objeto y duplicar la lista. La elección depende de si se prefiere la inmutabilidad de la vista (sin copia) o una copia completamente independiente (que refleja un momento en el tiempo). En cualquier caso, **nunca** se debe devolver la referencia directa a la estructura interna mutable.
 
 
 ## 10. Al igual que ocurre con las excepciones en Java, que pueden encerrar causas (que son excepciones), de forma recursiva, suponen un tipo especial de composiciones, denominadas composiciones recursivas. Pon un ejemplo en Java de una `Persona`, que sea inmutable, y que tiene una madre, que es otra `Persona`. Haz un main con un ejemplo de uso con una familia de personas, desde el nieto hasta la abuela. Enumera algún otro ejemplo clásico de composiciones recursivas.
 
-### Respuesta
+```java
+public final class Persona {
+    private final String nombre;
+    private final Persona madre; // Composición recursiva: una Persona tiene una madre que es otra Persona
+
+    public Persona(String nombre, Persona madre) {
+        this.nombre = nombre;
+        this.madre = madre;
+    }
+
+    // Constructor para una persona sin madre (raíz de la jerarquía)
+    public Persona(String nombre) {
+        this(nombre, null);
+    }
+
+    public String getNombre() {
+        return nombre;
+    }
+
+    public Persona getMadre() {
+        return madre;
+    }
+
+    // Método para obtener la abuela materna (recursivo)
+    public Persona getAbuelaMaterna() {
+        if (madre == null) {
+            return null;
+        }
+        return madre.getMadre();
+    }
+
+    // Método para obtener el árbol genealógico como String (recursivo)
+    public String getArbolGenealogico() {
+        if (madre == null) {
+            return nombre;
+        }
+        return nombre + " (hijo/a de " + madre.getArbolGenealogico() + ")";
+    }
+
+    @Override
+    public String toString() {
+        return nombre;
+    }
+}
+```
+
+```java
+public class MainFamiliar {
+    public static void main(String[] args) {
+        // Construcción desde la abuela hacia el nieto (inmutable)
+        Persona abuela = new Persona("María González");
+        Persona madre = new Persona("Ana López", abuela);
+        Persona hijo = new Persona("Carlos López", madre);
+        Persona nieta = new Persona("Lucía López", hijo);
+
+        System.out.println("Árbol genealógico de Lucía:");
+        System.out.println(nieta.getArbolGenealogico());
+        System.out.println("\nMadre de Lucía: " + nieta.getMadre());
+        System.out.println("Abuela materna de Lucía: " + nieta.getAbuelaMaterna());
+        System.out.println("Bisabuela materna de Lucía: " + 
+                           (nieta.getAbuelaMaterna() != null ? 
+                            nieta.getAbuelaMaterna().getMadre() : "No existe"));
+    }
+}
+```
+
+Este ejemplo de **composición recursiva** (o recursiva estructural) muestra cómo una clase `Persona` contiene una referencia a otra `Persona` (su madre). Esta estructura es recursiva porque el tipo `Persona` se define en términos de sí mismo, creando una jerarquía que puede ser tan profunda como se desee. La **inmutabilidad** se garantiza mediante `final` en la clase y sus atributos, y la ausencia de setters. Para construir una cadena familiar, es necesario hacerlo desde la raíz (la abuela) hacia los descendientes, ya que una vez creada, la relación madre-hijo no puede modificarse. Los métodos recursivos como `getAbuelaMaterna()` y `getArbolGenealogico()` recorren esta estructura naturalmente, siguiendo las referencias hasta llegar a `null` (caso base).
+
+Otros ejemplos clásicos de composiciones recursivas en programación orientada a objetos incluyen:
+
+1. **Árboles binarios**: un `Nodo` tiene referencia a un `Nodo` izquierdo y a un `Nodo` derecho (ambos del mismo tipo), formando una estructura jerárquica donde cada nodo puede contener subárboles completos.
+
+2. **Sistemas de archivos**: una `Carpeta` contiene una colección de `Elemento`, y cada `Elemento` puede ser un `Archivo` (hoja) o una `Carpeta` (nodo interno), creando una estructura recursiva de directorios.
+
+3. **Expresiones aritméticas**: una `Expresion` puede ser un `Numero` (hoja), una `Suma` (compuesta por dos `Expresion`), una `Multiplicacion` (compuesta por dos `Expresion`), etc., permitiendo representar expresiones anidadas arbitrariamente.
+
+4. **Listas enlazadas**: un `NodoLista` contiene un valor y una referencia a otro `NodoLista` (el siguiente), formando una cadena recursiva lineal.
+
+La composición recursiva es una herramienta poderosa para modelar estructuras jerárquicas y recursivas del dominio del problema, aprovechando la capacidad de los lenguajes orientados a objetos para que una clase pueda contener referencias a sí misma, siempre que se respeten los principios de encapsulación y se maneje correctamente el caso base (generalmente `null`) para evitar recursiones infinitas o desbordamientos de pila.
 
 ## 11. ¿Qué son las relaciones de composición "bidireccionales"? ¿Qué habría que hacer para implementar este tipo de relación en el ejemplo de `Profesor` y `Departamento`?
 
-### Respuesta
+Las relaciones de composición **bidireccionales** son aquellas en las que **ambos extremos de la relación conocen al otro**, es decir, cada objeto tiene una referencia (o colección de referencias) hacia el objeto o los objetos relacionados en el otro lado. Esto permite la navegación en ambos sentidos: desde `Departamento` se puede acceder a sus `Profesor`es, y desde un `Profesor` se puede saber a qué `Departamento` pertenece (o perteneció). En el ámbito de la composición débil (agregación), la bidireccionalidad es común cuando las reglas del dominio requieren que ambas entidades tengan conocimiento mutuo para mantener invariantes o facilitar operaciones.
+
+Para implementar esta relación bidireccional en el ejemplo de `Profesor` y `Departamento`, se debería **añadir una referencia desde `Profesor` hacia su `Departamento`**. Sin embargo, esto introduce complejidad adicional porque hay que mantener la **consistencia** entre ambas direcciones: si un profesor se añade a un departamento, su referencia al departamento debe actualizarse; si se elimina, debe limpiarse. Además, surgen decisiones de diseño sobre la multiplicidad inversa: un profesor típicamente pertenece a un solo departamento (multiplicidad 1), aunque podría pertenecer a varios (0..*). El siguiente código ilustra una implementación bidireccional donde cada profesor conoce su departamento:
+
+```java
+public class Profesor {
+    private final String nombre;
+    private final String id;
+    private Departamento departamento;  // Referencia bidireccional (nullable)
+
+    public Profesor(String nombre, String id) {
+        this.nombre = nombre;
+        this.id = id;
+        this.departamento = null;  // Inicialmente sin departamento
+    }
+
+    public String getNombre() { return nombre; }
+    public String getId() { return id; }
+    
+    public Departamento getDepartamento() { return departamento; }
+    
+    // Método de paquete o público restringido para establecer la relación
+    void setDepartamento(Departamento dept) {
+        this.departamento = dept;
+    }
+}
+
+public class Departamento {
+    private List<Profesor> profesores;
+    private Profesor director;
+
+    public Departamento(Profesor directorInicial) {
+        this.profesores = new ArrayList<>();
+        this.director = directorInicial;
+        añadirProfesor(directorInicial);
+    }
+
+    public void añadirProfesor(Profesor profesor) {
+        if (profesor == null) {
+            throw new IllegalArgumentException("El profesor no puede ser nulo");
+        }
+        // Mantener consistencia bidireccional
+        if (profesor.getDepartamento() != null) {
+            profesor.getDepartamento().removerProfesor(profesor);
+        }
+        profesores.add(profesor);
+        profesor.setDepartamento(this);
+    }
+
+    private void removerProfesor(Profesor profesor) {
+        if (profesores.remove(profesor)) {
+            profesor.setDepartamento(null);
+        }
+    }
+
+    public void eliminarProfesor(int posicion) {
+        Profesor profesorAEliminar = profesores.get(posicion);
+        if (profesorAEliminar == director && profesores.size() == 1) {
+            throw new IllegalStateException("No se puede eliminar al director si es el único profesor");
+        }
+        removerProfesor(profesorAEliminar);
+        if (profesorAEliminar == director) {
+            director = profesores.get(0);
+        }
+    }
+
+    // Resto de métodos similares (cambiarDirector, getters, etc.)
+}
+```
+
+Implementar bidireccionalidad requiere **acciones de mantenimiento en ambos lados** cada vez que se establece o rompe la relación. En el ejemplo, el método `añadirProfesor` verifica si el profesor ya pertenecía a otro departamento y lo desvincula primero, luego añade la referencia en la lista del departamento y actualiza la referencia inversa con `profesor.setDepartamento(this)`. El método `removerProfesor` (privado) limpia ambas referencias. Para evitar que la bidireccionalidad sea rota por código externo, los métodos de actualización de la referencia inversa deben tener visibilidad restringida (por ejemplo, `protected` o de paquete), para que solo las clases del mismo paquete (o el departamento) puedan modificarlos.
+
+La principal **desventaja** de las relaciones bidireccionales es que aumentan el **acoplamiento** y la complejidad de mantenimiento, pudiendo introducir errores si no se actualizan ambas direcciones consistentemente. También pueden crear **ciclos de referencia** que dificulten la recolección de basura (aunque en Java esto no es un problema, ya que el recolector maneja ciclos). Por ello, la bidireccionalidad debe usarse solo cuando sea estrictamente necesaria por requisitos del dominio, como cuando un profesor necesita saber su departamento para mostrar su adscripción o para validar reglas de negocio que dependen de ese conocimiento. En muchos casos, es preferible mantener la relación **unidireccional** y, si se necesita navegar en sentido inverso, hacer una búsqueda en el contexto adecuado (por ejemplo, preguntar a un servicio centralizado).
