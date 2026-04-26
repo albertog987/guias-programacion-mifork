@@ -262,14 +262,241 @@ Un ejemplo clásico de clase `final` en la API estándar de Java es **`java.lang
 
 ## 9. En Java, qué son las **"interfaces"**? ¿Son como clases abstractas? ¿Una clase puede implementar más de una interfaz?
 
-### Respuesta
+Una **interfaz** en Java es un tipo de referencia que define un **contrato** de métodos que una clase debe implementar, pero sin proporcionar la implementación (aunque desde Java 8 pueden tener métodos `default` y `static` con implementación, y desde Java 9 métodos `private`). Una interfaz se declara con la palabra clave `interface` en lugar de `class`. Contiene declaraciones de métodos públicos (implícitamente `public abstract`, aunque no se escriba), constantes (implícitamente `public static final`), y desde versiones recientes, métodos `default`, `static` y `private`. Las interfaces no tienen constructores, no pueden tener atributos de instancia (solo constantes) y no se pueden instanciar directamente.
+
+Las interfaces son **similares a las clases abstractas** en que ambas no pueden instanciarse y definen comportamientos que las clases concretas deben completar. Sin embargo, hay diferencias fundamentales: una clase puede implementar **múltiples interfaces**, pero solo puede extender **una clase** (abstracta o concreta). Las interfaces no tienen estado (atributos de instancia), mientras que las clases abstractas sí pueden tenerlos. Las clases abstractas pueden tener constructores y métodos con cualquier visibilidad, mientras que los métodos de interfaz son implícitamente `public` (aunque desde Java 9 se permiten `private`). Las interfaces son más adecuadas para definir **capacidades o roles** (por ejemplo, `Comparable`, `Serializable`, `Runnable`) que pueden ser implementados por clases completamente no relacionadas por herencia, mientras que las clases abstractas se usan para compartir código entre clases que ya tienen una relación "es-un" cercana.
+
+**Sí, una clase puede implementar más de una interfaz**, y es una de las características más potentes de Java. Por ejemplo, una clase `EstudianteTrabajador` podría implementar las interfaces `Estudiante` (con métodos como `estudiar()`) y `Trabajador` (con métodos como `trabajar()`), a pesar de que Java no permite herencia múltiple de clases. Esto se conoce como **herencia múltiple de tipos**. Cuando una clase implementa varias interfaces, debe proporcionar implementaciones concretas para todos los métodos de todas las interfaces (a menos que herede implementaciones `default` conflictivas, en cuyo caso debe sobrescribirlas explícitamente). Las interfaces permiten un diseño flexible basado en composición de roles, evitando los problemas de la herencia múltiple de clases (como el problema del diamante), porque las interfaces no tienen estado y las reglas de resolución de conflictos de métodos `default` están bien definidas (la clase concreta gana sobre la interfaz, y si dos interfaces proporcionan `default` conflictivos, la clase debe sobrescribir el método). Esta capacidad de implementar múltiples interfaces es fundamental para muchos patrones de diseño y para el sistema de tipos de Java, ya que permite que un objeto se comporte como múltiples cosas sin las limitaciones de la herencia simple.
 
 
 ## 10. Vamos a poner un ejemplo nuevo con polimorfismo. Queremos implementar una clase `Punto`, con un método `calcularDistanciaA`, que permite calcular la distancia a otro `Punto`. Sin embargo, como queremos trabajar con puntos 2D y 3D, haz que ese método sea abstracto y haya dos implementaciones de ese cálculo de distancia. Emplea `instanceof` y *downcasting* para verificar que se recibe un punto compatible y poder calcular correctamente la distancia siempre entre puntos del mismo subtipo. Aprovecha este diseño para crear ahora una clase `Linea`, que acepta `Punto`, sin saber de qué tipo es, y es capaz de dar su longitud independientemente de las dimensiones de sus puntos (las cuales desconoce).
 
-### Respuesta
+```java
+// Clase abstracta Punto
+public abstract class Punto {
+    // Método abstracto: cada subtipo debe implementar su propia fórmula de distancia
+    public abstract double calcularDistanciaA(Punto otro);
+}
+
+// Punto2D con coordenadas x e y
+public class Punto2D extends Punto {
+    private final double x;
+    private final double y;
+
+    public Punto2D(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public double getX() { return x; }
+    public double getY() { return y; }
+
+    @Override
+    public double calcularDistanciaA(Punto otro) {
+        // Verificación dinámica del tipo
+        if (!(otro instanceof Punto2D)) {
+            throw new IllegalArgumentException("No se puede calcular distancia entre Punto2D y " + otro.getClass().getSimpleName());
+        }
+        // Downcasting seguro después de instanceof
+        Punto2D p2 = (Punto2D) otro;
+        double dx = this.x - p2.x;
+        double dy = this.y - p2.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+}
+
+// Punto3D con coordenadas x, y, z
+public class Punto3D extends Punto {
+    private final double x;
+    private final double y;
+    private final double z;
+
+    public Punto3D(double x, double y, double z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    public double getX() { return x; }
+    public double getY() { return y; }
+    public double getZ() { return z; }
+
+    @Override
+    public double calcularDistanciaA(Punto otro) {
+        if (!(otro instanceof Punto3D)) {
+            throw new IllegalArgumentException("No se puede calcular distancia entre Punto3D y " + otro.getClass().getSimpleName());
+        }
+        Punto3D p3 = (Punto3D) otro;
+        double dx = this.x - p3.x;
+        double dy = this.y - p3.y;
+        double dz = this.z - p3.z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+}
+```
+
+```java
+// Clase Linea que trabaja con Puntos sin conocer su subtipo concreto
+public class Linea {
+    private final Punto inicio;
+    private final Punto fin;
+
+    public Linea(Punto inicio, Punto fin) {
+        if (inicio == null || fin == null) {
+            throw new IllegalArgumentException("Los puntos no pueden ser nulos");
+        }
+        // Nota: No se verifica que sean del mismo subtipo.
+        // El error se producirá al calcular la longitud si son incompatibles.
+        this.inicio = inicio;
+        this.fin = fin;
+    }
+
+    public double longitud() {
+        // El polimorfismo decide qué versión de calcularDistanciaA se ejecuta
+        // según el tipo real del objeto 'inicio'.
+        // Sin embargo, 'inicio.calcularDistanciaA(fin)' debe poder manejar
+        // la compatibilidad de tipos. En este diseño, los puntos de distinto tipo
+        // lanzarán una excepción.
+        return inicio.calcularDistanciaA(fin);
+    }
+
+    public Punto getInicio() { return inicio; }
+    public Punto getFin() { return fin; }
+}
+```
+
+```java
+// Demostración del polimorfismo
+public class Main {
+    public static void main(String[] args) {
+        // Línea con puntos 2D
+        Punto2D p2a = new Punto2D(0, 0);
+        Punto2D p2b = new Punto2D(3, 4);
+        Linea linea2D = new Linea(p2a, p2b);
+        System.out.println("Longitud 2D: " + linea2D.longitud()); // 5.0
+
+        // Línea con puntos 3D
+        Punto3D p3a = new Punto3D(0, 0, 0);
+        Punto3D p3b = new Punto3D(1, 2, 2);
+        Linea linea3D = new Linea(p3a, p3b);
+        System.out.println("Longitud 3D: " + linea3D.longitud()); // 3.0 (sqrt(1+4+4))
+
+        // Línea mixta: Punto2D con Punto3D
+        Linea lineaMixta = new Linea(p2a, p3b);
+        try {
+            System.out.println("Longitud mixta: " + lineaMixta.longitud());
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error esperado: " + e.getMessage());
+        }
+    }
+}
+```
+
+En este diseño, la clase abstracta `Punto` declara el método `calcularDistanciaA(Punto otro)` como abstracto, forzando a las subclases `Punto2D` y `Punto3D` a implementarlo. Cada subclase utiliza `instanceof` para verificar que el parámetro recibido es del mismo tipo y luego realiza un **downcasting** seguro para acceder a las coordenadas específicas. Si se recibe un punto de tipo incompatible, se lanza una excepción con un mensaje informativo. Esto respeta la encapsulación porque cada subclase solo conoce sus propias coordenadas y la fórmula de distancia correspondiente, y no necesita acceder directamente a los atributos de otros tipos de puntos (de hecho, no podría hacerlo porque son privados).
+
+La clase `Linea` demuestra el polimorfismo en acción: almacena referencias de tipo `Punto` (abstracto) sin conocer si son 2D o 3D. Al calcular la longitud, simplemente invoca `inicio.calcularDistanciaA(fin)`. La **ligadura dinámica** se encarga de ejecutar la implementación correcta según el tipo real de `inicio`. Si ambos puntos son compatibles (del mismo subtipo), el cálculo funciona; si son de distintos subtipos, la implementación específica de `Punto2D` (o `Punto3D`) detectará la incompatibilidad con `instanceof` y lanzará una excepción controlada. Este diseño ilustra cómo el polimorfismo permite tratar objetos de tipos diferentes de manera uniforme (como `Punto`), mientras que la verificación de tipos en tiempo de ejecución mediante `instanceof` (y el consiguiente downcasting) se utiliza solo cuando es estrictamente necesario para acceder a detalles específicos de cada subtipo. La alternativa más elegante sería rediseñar para evitar el `instanceof` usando el **patrón Visitor** o delegando la responsabilidad de la compatibilidad a un nivel superior, pero para este ejemplo el enfoque con `instanceof` es didáctico y funcional.
 
 
 ## 11. ¿Qué es la **"herencia de interfaces"** en Java? ¿Existe **"herencia múltiple de interfaces"**? Pon un ejemplo de una interfaz `Fichero` que tenga un método para leer su contenido en forma de `String` y luego dicha interfaz sea extendida por otra que sea `FicheroEscribible` que permita enviar contenido e incluso eliminar el fichero.
 
-### Respuesta
+La **"herencia de interfaces"** en Java es el mecanismo mediante el cual una interfaz puede extender una o más interfaces padre utilizando la palabra clave `extends`. A diferencia de la herencia de clases (que es simple, una clase solo puede extender una clase padre), **la herencia de interfaces sí permite la herencia múltiple**: una interfaz puede extender múltiples interfaces simultáneamente. Esto es posible porque las interfaces solo declaran comportamientos (métodos) sin implementación (con la excepción de los métodos `default`, pero las reglas de conflicto están bien definidas), por lo que no se presentan los problemas semánticos del diamante que ocurren con la herencia múltiple de clases (como ambigüedad sobre qué implementación heredar). Cuando una interfaz extiende varias interfaces, hereda todas las declaraciones de métodos de sus interfaces padre, y cualquier clase que implemente la interfaz hija debe proporcionar implementaciones para todos los métodos de toda la jerarquía.
+
+```java
+// Interfaz base Fichero
+public interface Fichero {
+    // Método para leer el contenido completo como String
+    String leerContenido();
+    
+    // Método para obtener el nombre del fichero
+    String getNombre();
+}
+
+// Interfaz que extiende Fichero (herencia simple de interfaces)
+public interface FicheroEscribible extends Fichero {
+    // Método para escribir/sobrescribir contenido
+    void escribirContenido(String contenido);
+    
+    // Método para añadir contenido al final
+    void appendContenido(String contenido);
+    
+    // Método para eliminar el fichero
+    boolean eliminar();
+}
+
+// Ejemplo de herencia múltiple de interfaces
+public interface FicheroComprimible extends Fichero {
+    void comprimir();
+    void descomprimir();
+}
+
+// Una interfaz puede extender múltiples interfaces (herencia múltiple de interfaces)
+public interface FicheroAvanzado extends FicheroEscribible, FicheroComprimible {
+    // Hereda todos los métodos de Fichero, FicheroEscribible y FicheroComprimible
+    void copiar(String destino);
+}
+
+// Clase concreta que implementa FicheroEscribible (solo necesita implementar los métodos de Fichero + los añadidos)
+public class ArchivoTexto implements FicheroEscribible {
+    private String nombre;
+    private StringBuilder contenido;
+
+    public ArchivoTexto(String nombre) {
+        this.nombre = nombre;
+        this.contenido = new StringBuilder();
+    }
+
+    @Override
+    public String leerContenido() {
+        return contenido.toString();
+    }
+
+    @Override
+    public String getNombre() {
+        return nombre;
+    }
+
+    @Override
+    public void escribirContenido(String contenido) {
+        this.contenido = new StringBuilder(contenido);
+    }
+
+    @Override
+    public void appendContenido(String contenido) {
+        this.contenido.append(contenido);
+    }
+
+    @Override
+    public boolean eliminar() {
+        // Simulación de eliminación
+        this.contenido = null;
+        System.out.println("Fichero " + nombre + " eliminado");
+        return true;
+    }
+}
+```
+
+```java
+// Demostración de uso
+public class MainInterfaces {
+    public static void main(String[] args) {
+        // Polimorfismo con interfaces: variable de tipo Fichero
+        Fichero f = new ArchivoTexto("documento.txt");
+        System.out.println("Nombre: " + f.getNombre());
+        System.out.println("Contenido: " + f.leerContenido()); // Vacío inicialmente
+        
+        // Para usar métodos de FicheroEscribible, necesitamos downcasting
+        if (f instanceof FicheroEscribible) {
+            FicheroEscribible fe = (FicheroEscribible) f;
+            fe.escribirContenido("Hola mundo");
+            fe.appendContenido(" desde Java");
+            System.out.println("Nuevo contenido: " + fe.leerContenido());
+            fe.eliminar();
+        }
+        
+        // Ejemplo de herencia múltiple con interfaz avanzada
+        // Clase hipotética ArchivoComprimido que implementaría FicheroAvanzado
+    }
+}
+```
+
+En este ejemplo, la interfaz `Fichero` proporciona la funcionalidad básica de lectura y obtención del nombre. La interfaz `FicheroEscribible` **extiende** a `Fichero` (herencia simple), añadiendo métodos de escritura y eliminación. Una clase como `ArchivoTexto` que implementa `FicheroEscribible` debe implementar todos los métodos de ambas interfaces. La herencia múltiple de interfaces se muestra con `FicheroAvanzado`, que extiende **dos interfaces** (`FicheroEscribible` y `FicheroComprimible`), demostrando que una interfaz puede tener múltiples padres. Esto permite construir jerarquías de tipos muy expresivas y flexibles, donde una clase puede adoptar múltiples roles (por ejemplo, `FicheroEscribible` y `FicheroComprimible`) mediante la implementación de una sola interfaz hija. Es importante notar que, si dos interfaces padre declaran métodos con la misma firma, no hay problema (la interfaz hija hereda una única declaración); si declaran métodos `default` conflictivos, la interfaz hija debe sobrescribir el método o el compilador produce un error. Las interfaces son, por tanto, una herramienta poderosa para definir contratos y comportamientos reutilizables sin las limitaciones de la herencia simple de clases.
