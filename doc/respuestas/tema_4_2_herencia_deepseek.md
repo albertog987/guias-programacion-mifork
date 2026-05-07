@@ -1,17 +1,3 @@
-<!--
-Posible prompt:
-<prompt>
-Tengo un cuestionario con preguntas sobre "Herencia". Debes tener en cuenta que los conocimientos previos que tengo (y por tanto tus respuestas deben ser adaptadas), son:
-- C/C++ sin orientación a objetos.
-- Temas de Java previos: Clases y Objetos, Encapsulación, Excepciones y Composición.
-
-Cada respuesta debe tener entre 2 - 4 párrafos de longitud (sin contar los trozos de código).
-
-Por favor, escribe en impersonal las respuestas.
-
-</prompt>
-----
--->
 ## 1. En orientación a objetos, ¿qué es la **herencia** y su relación con "A es-un B"?. Explica las dos implicaciones principales: (1) **compatibilidad de tipos** y (2) **herencia de estado y comportamiento**. Pon un ejemplo en Java muy sencillo, donde un `Soldado` tiene un `nombre` (privado) y un método `saludar()` que muestra su nombre. Hay dos subtipos: un `Artillero`, que es capaz de disparar cohetes y un `Zapador` que pone minas, ambos heredan el atributo nombre y la capacidad de saludar. Además, y de forma específica, el artillero tiene un número de cohetes y el zapador un número de minas, accesibles mediante "getters" específicos. Respecto a la compatibilidad de tipos, aprovechémosla: crea un array de `Soldado`, mete varios de distinto tipo (son todos compatibles con `Soldado`). Recórrela y que todos te saluden.
 
 La **herencia** es un mecanismo fundamental de la programación orientada a objetos que permite definir una nueva clase (subclase o clase hija) basándose en una clase existente (superclase o clase padre), estableciendo una relación **"es-un"** (is-a). Esta relación indica que la subclase es un caso particular o una especialización de la superclase: un `Artillero` es un `Soldado`, un `Zapador` es un `Soldado`. La herencia aporta dos implicaciones principales: por un lado, la **compatibilidad de tipos**, que permite que una variable de tipo superclase pueda referenciar objetos de cualquier subclase; por otro lado, la **herencia de estado y comportamiento**, que significa que la subclase automáticamente posee todos los atributos y métodos de la superclase (excepto los privados), pudiendo añadir nuevos o modificar los existentes.
